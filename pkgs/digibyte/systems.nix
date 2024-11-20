@@ -1,15 +1,15 @@
-# Create this file at pkgs/digibyte/systems.nix:
+# Update pkgs/digibyte/systems.nix:
 
 { lib }:
 
 {
-  # System-specific configurations
   x86_64-linux = {
     optFlags = [
       "-march=x86-64"
       "-mtune=generic"
       "-O2"
       "-pipe"
+      "-fPIC"
     ];
     extraConfig = [
       "--enable-hardening"
@@ -21,6 +21,7 @@
       "-march=armv8-a"
       "-O2"
       "-pipe"
+      "-fPIC"
     ];
     extraConfig = [
       "--enable-hardening"
@@ -32,10 +33,13 @@
       "-march=x86-64"
       "-mtune=generic"
       "-O2"
+      "-fPIC"
+      "-stdlib=libc++"
     ];
     extraConfig = [
       "--enable-hardening"
       "--with-daemon"
+      "--with-gui=no"
     ];
   };
 
@@ -43,10 +47,13 @@
     optFlags = [
       "-march=armv8-a"
       "-O2"
+      "-fPIC"
+      "-stdlib=libc++"
     ];
     extraConfig = [
       "--enable-hardening"
       "--with-daemon"
+      "--with-gui=no"
     ];
   };
 }

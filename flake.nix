@@ -1,3 +1,5 @@
+# Update flake.nix:
+
 {
   description = "Multi-architecture DigiByte validator";
 
@@ -25,23 +27,12 @@
       {
         packages = rec {
           digibyte = pkgs.callPackage ./pkgs/digibyte {
-            inherit (pkgs) qtbase qttools wrapQtAppsHook;
-            withGui = true;
+            withGui = !pkgs.stdenv.isDarwin;
           };
           digibyted = pkgs.callPackage ./pkgs/digibyte {
             withGui = false;
           };
-          default = digibyte;
-        };
-
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            boost
-            openssl
-            libevent
-            db4
-            zeromq
-          ];
+          default = digibyted;
         };
       }
     );
