@@ -1,3 +1,5 @@
+# Create this file at pkgs/digibyte/default.nix:
+
 { lib
 , stdenv
 , fetchFromGitHub
@@ -14,10 +16,15 @@
 , qtbase ? null
 , qttools ? null
 , wrapQtAppsHook ? null
+, darwin ? null
 }:
 
-assert withGui -> qtbase != null && qttools != null && wrapQtAppsHook != null;
-
+let
+  systemConfig = (import ./systems.nix { inherit lib; }).${stdenv.hostPlatform.system} or {
+    optFlags = [ "-O2" ];
+    extraConfig = [ ];
+  };
+in
 stdenv.mkDerivation rec {
   pname = "digibyte";
   version = "7.17.3";
@@ -36,6 +43,10 @@ stdenv.mkDerivation rec {
     hexdump
   ] ++ lib.optionals withGui [
     wrapQtAppsHook
+  ] ++ lib.optionals stdenv.isDarwin [
+    darwin.apple_sdk.frameworks.Foundation
+    darwin.apple_sdk.frameworks.AppKit
+    darwin.apple_sdk.frameworks.CoreServices
   ];
 
   buildInputs = [
@@ -52,18 +63,30 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
+  CFLAGS = toString systemConfig.optFlags;
+  CXXFLAGS = toString systemConfig.optFlags;
+
   configureFlags = [
     "--with-boost-libdir=${boost.out}/lib"
+    "--disable-bench"
   ] ++ lib.optionals withGui [
     "--with-gui=qt5"
     "--with-qt-bindir=${qtbase.dev}/bin:${qttools.dev}/bin"
-  ];
+  ] ++ systemConfig.extraConfig;
+
+  preConfigure = lib.optionalString stdenv.isDarwin ''
+    export BOOST_INCLUDE_PATH="${boost.dev}/include"
+    export BOOST_LIB_PATH="${boost.out}/lib"
+    export EVENT_INCLUDE_PATH="${libevent.dev}/include"
+    export EVENT_LIB_PATH="${libevent.out}/lib"
+  '';
 
   meta = with lib; {
     description = "DigiByte (DGB) is a rapidly growing decentralized, global blockchain";
     homepage = "https://digibyte.io/";
     license = licenses.mit;
     maintainers = [ maintainers.mmahut ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
+    mainProgram = if withGui then "digibyte-qt" else "digibyted";
   };
 }

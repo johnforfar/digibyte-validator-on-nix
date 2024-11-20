@@ -1,8 +1,11 @@
-(import (
-  fetchTarball {
-    url = "https://github.com/edolstra/flake-compat/archive/master.tar.gz";
-    sha256 = "sha256:0m9grvfsbwmvgwaxvdzv6cmyvjnlww004gfxjvcl806ndqaxzy4j";
-  }
-) {
-  src = ./.;
-}).defaultNix
+let
+  nixpkgs = import (fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-24.05.tar.gz") {
+    config = {
+      allowUnfree = true;
+    };
+  };
+in
+nixpkgs.callPackage ./pkgs/digibyte {
+  inherit (nixpkgs) qtbase qttools wrapQtAppsHook;
+  withGui = true;
+}
