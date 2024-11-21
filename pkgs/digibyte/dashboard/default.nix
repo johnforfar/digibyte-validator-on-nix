@@ -7,11 +7,6 @@ pkgs.stdenv.mkDerivation {
   
   buildInputs = [
     pkgs.nodejs
-    pkgs.nodePackages.express
-  ];
-
-  nativeBuildInputs = [
-    pkgs.makeWrapper
   ];
 
   dontUnpack = true;
@@ -22,17 +17,17 @@ pkgs.stdenv.mkDerivation {
     # Copy dashboard files
     cp $src/index.html $out/share/dashboard/index.html
     cp $src/server.js $out/share/dashboard/server.js
-    cp $src/package.json $out/share/dashboard/package.json
 
     # Create executable wrapper
-    makeWrapper ${pkgs.nodejs}/bin/node $out/bin/digibyte-dashboard \
-      --add-flags "$out/share/dashboard/server.js" \
-      --set NODE_PATH ${pkgs.nodePackages.express}/lib/node_modules
+    cat > $out/bin/digibyte-dashboard <<EOF
+    #!${pkgs.nodejs}/bin/node
+    require('$out/share/dashboard/server.js')
+    EOF
+    chmod +x $out/bin/digibyte-dashboard
   '';
 
   meta = with pkgs.lib; {
     description = "DigiByte Node Dashboard";
     platforms = platforms.unix;
-    maintainers = [ ];
   };
 }

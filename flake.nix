@@ -45,15 +45,13 @@
         };
 
         apps = rec {
-          # Fix: Create app for digibyted
+          default = digibyted;
+          
           digibyted = flake-utils.lib.mkApp {
             drv = self.packages.${system}.digibyted;
             name = "digibyted";
           };
-          
-          # Fix: Reference digibyted app as default
-          default = digibyted;
-          
+
           dashboard = flake-utils.lib.mkApp {
             drv = self.packages.${system}.dashboard;
             name = "digibyte-dashboard";
