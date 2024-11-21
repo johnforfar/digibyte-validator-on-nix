@@ -12,10 +12,10 @@ stdenv.mkDerivation rec {
   version = "1.0.5";
 
   src = fetchFromGitHub {
-    owner = "bitcoin-core";
+    owner = "jgarzik";  # Changed from bitcoin-core to jgarzik
     repo = "univalue";
-    rev = "v${version}";
-    sha256 = "1ww45wjbbw441qv1rlqqs5i1cr28cxkp4lj7kqjkgjp0jf62swvx";
+    rev = "89c61d10628fff53ada752660dcd4b4d515a5a31";  # Using specific commit hash
+    hash = "sha256-qZBhK4FoGNcnj8oH2tpJ/OhbRFTZFOYlJGp4jMi4Zhk=";
   };
 
   nativeBuildInputs = [
@@ -28,9 +28,14 @@ stdenv.mkDerivation rec {
     "--disable-shared"
   ];
 
+  # Added to fix potential autotools issues
+  preConfigure = ''
+    autoreconf -vi
+  '';
+
   meta = with lib; {
     description = "Universal Value object and JSON library";
-    homepage = "https://github.com/bitcoin-core/univalue";
+    homepage = "https://github.com/jgarzik/univalue";
     license = licenses.mit;
     platforms = platforms.unix;
   };
