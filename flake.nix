@@ -1,4 +1,4 @@
-# Update flake.nix:
+# ./flake.nix:
 
 {
   description = "Multi-architecture DigiByte validator";
@@ -23,22 +23,29 @@
             allowUnsupportedSystem = true;
           };
         };
+
+        # Build univalue package
+        univalue = pkgs.callPackage ./pkgs/univalue {};
+
+        # Create digibyte package with dependencies
+        digibyte = pkgs.callPackage ./pkgs/digibyte {
+          inherit univalue;
+          inherit (pkgs.qt6)
+            qtbase
+            qttools;
+          inherit (pkgs)
+            wrapQtAppsHook;
+          withGui = !pkgs.stdenv.isDarwin;
+        };
+
+        digibyted = pkgs.callPackage ./pkgs/digibyte {
+          inherit univalue;
+          withGui = false;
+        };
       in
       {
-        packages = rec {
-          digibyte = pkgs.callPackage ./pkgs/digibyte {
-            inherit (pkgs) univalue;
-            inherit (pkgs.qt6)
-              qtbase
-              qttools;
-            inherit (pkgs)
-              wrapQtAppsHook;
-            withGui = !pkgs.stdenv.isDarwin;
-          };
-          digibyted = pkgs.callPackage ./pkgs/digibyte {
-            inherit (pkgs) univalue;
-            withGui = false;
-          };
+        packages = {
+          inherit univalue digibyte digibyted;
           default = digibyted;
         };
       }
