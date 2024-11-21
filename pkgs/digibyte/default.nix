@@ -1,4 +1,4 @@
-# pkgs/digibyte/default.nix:
+# Update pkgs/digibyte/default.nix:
 
 { lib
 , stdenv
@@ -18,6 +18,7 @@
 , libtool
 , python3
 , binutils-unwrapped
+, univalue
 , withGui ? false
 , qtbase ? null
 , qttools ? null
@@ -73,6 +74,7 @@ stdenv.mkDerivation rec {
     libevent
     db4
     zeromq
+    univalue
   ] ++ lib.optionals withGui [
     qtbase
     qttools
@@ -84,20 +86,23 @@ stdenv.mkDerivation rec {
 
   # Make sure these are set before configure runs
   preConfigure = ''
-    # Override cpp path in configure script
-    substituteInPlace configure.ac \
-      --replace 'AC_PROG_CPP' '
-    AC_MSG_CHECKING(how to run the C preprocessor)
-    CPP="${stdenv.cc}/bin/cc -E"
-    AC_MSG_RESULT($CPP)'
+    # Export BDB paths
+    export BDB_PREFIX="${db4}"
+    export BDB_CFLAGS="-I${db4}/include"
+    export BDB_LIBS="-L${db4}/lib -ldb_cxx-4.8"
 
+    # Set library paths
     export BOOST_INCLUDE_PATH="${boost.dev}/include"
     export BOOST_LIB_PATH="${boost.out}/lib"
     export EVENT_INCLUDE_PATH="${libevent.dev}/include"
     export EVENT_LIB_PATH="${libevent.out}/lib"
-    export BDB_INCLUDE_PATH="${db4}/include"
-    export BDB_LIB_PATH="${db4}/lib"
-    export NIX_CFLAGS_COMPILE="-I${boost.dev}/include -I${libevent.dev}/include -I${openssl.dev}/include -I${db4}/include"
+    
+    # Add univalue to include and lib paths
+    export UNIVALUE_INCLUDE_PATH="${univalue}/include"
+    export UNIVALUE_LIB_PATH="${univalue}/lib"
+    
+    # Set compiler flags
+    export NIX_CFLAGS_COMPILE="-I${boost.dev}/include -I${libevent.dev}/include -I${openssl.dev}/include -I${db4}/include -I${univalue}/include"
     
     ${lib.optionalString stdenv.isDarwin ''
       export MACOSX_DEPLOYMENT_TARGET=11.0
@@ -105,7 +110,8 @@ stdenv.mkDerivation rec {
       export CXX="${stdenv.cc}/bin/c++"
       export CXXFLAGS="-std=c++17 -stdlib=libc++"
       export OBJCXX="${stdenv.cc}/bin/c++"
-      export LDFLAGS="-L${lib.getLib openssl}/lib -L${boost.out}/lib -L${libevent.out}/lib -L${db4}/lib"
+      export LDFLAGS="-L${lib.getLib openssl}/lib -L${boost.out}/lib -L${libevent.out}/lib -L${db4}/lib -L${univalue}/lib"
+      export PKG_CONFIG_PATH="${univalue}/lib/pkgconfig:$PKG_CONFIG_PATH"
     ''}
 
     # Run autogen
@@ -117,14 +123,14 @@ stdenv.mkDerivation rec {
     "--with-boost-libdir=${boost.out}/lib"
     "--disable-bench"
     "--disable-tests"
-    "--with-system-univalue"
-    "--disable-dependency-tracking"
+    "--with-incompatible-bdb"
+    "--with-daemon"
+    "--with-univalue=${univalue}"
   ] ++ lib.optionals withGui [
     "--with-gui=qt5"
     "--with-qt-bindir=${qtbase.dev}/bin:${qttools.dev}/bin"
   ] ++ lib.optionals stdenv.isDarwin [
     "--enable-hardening"
-    "--with-daemon"
     "--enable-werror=no"
   ];
 
