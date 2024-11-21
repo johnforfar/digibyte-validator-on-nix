@@ -25,8 +25,9 @@
         };
       in
       {
-        packages = rec {  # Added 'rec' here
+        packages = rec {
           digibyte = pkgs.callPackage ./pkgs/digibyte {
+            inherit (pkgs) clang llvmPackages;
             inherit (pkgs.qt6)
               qtbase
               qttools;
@@ -36,6 +37,7 @@
           };
           
           digibyted = pkgs.callPackage ./pkgs/digibyte {
+            inherit (pkgs) clang llvmPackages;
             withGui = false;
           };
           

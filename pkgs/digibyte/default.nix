@@ -18,6 +18,8 @@
 , libtool
 , python3
 , binutils-unwrapped
+, clang
+, llvmPackages
 , withGui ? false
 , qtbase ? null
 , qttools ? null
@@ -50,24 +52,25 @@ stdenv.mkDerivation rec {
   };
 
   nativeBuildInputs = [
+    pkg-config
+    autoreconfHook
     autoconf
     automake
     libtool
-    pkg-config
-    hexdump
     which
     python3
-    binutils-unwrapped
   ] ++ lib.optionals withGui [
     wrapQtAppsHook
   ] ++ lib.optionals stdenv.isDarwin [
     darwin.cctools
+    clang
+    llvmPackages.bintools
   ];
 
   buildInputs = [
-    openssl
     boost
     libevent
+    openssl
     db4
     zeromq
   ] ++ lib.optionals withGui [
@@ -75,43 +78,6 @@ stdenv.mkDerivation rec {
     qttools
     protobuf
   ] ++ lib.optionals stdenv.isDarwin darwinBuildInputs;
-
-  # Set build environment
-  NIX_CPP = if stdenv.isDarwin then "${stdenv.cc}/bin/cc -E" else "/usr/bin/cpp";
-
-  # Make sure these are set before configure runs
-    preConfigure = ''
-    # Define BOOST_BIND_GLOBAL_PLACEHOLDERS to fix boost bind warning
-    export CXXFLAGS="$CXXFLAGS -DBOOST_BIND_GLOBAL_PLACEHOLDERS -Wno-deprecated-declarations"
-    export CPPFLAGS="$CPPFLAGS -DBOOST_BIND_GLOBAL_PLACEHOLDERS"
-    
-    # Export BDB paths
-    export BDB_PREFIX="${db4}"
-    export BDB_CFLAGS="-I${db4}/include"
-    export BDB_LIBS="-L${db4}/lib -ldb_cxx-4.8"
-
-    # Set library paths
-    export BOOST_INCLUDE_PATH="${boost.dev}/include"
-    export BOOST_LIB_PATH="${boost.out}/lib"
-    export EVENT_INCLUDE_PATH="${libevent.dev}/include"
-    export EVENT_LIB_PATH="${libevent.out}/lib"
-    
-    # Set compiler flags
-    export NIX_CFLAGS_COMPILE="-I${boost.dev}/include -I${libevent.dev}/include -I${openssl.dev}/include -I${db4}/include"
-    
-    ${lib.optionalString stdenv.isDarwin ''
-      export MACOSX_DEPLOYMENT_TARGET=11.0
-      export CC="${stdenv.cc}/bin/cc"
-      export CXX="${stdenv.cc}/bin/c++"
-      export CXXFLAGS="$CXXFLAGS -std=c++17 -stdlib=libc++"
-      export OBJCXX="${stdenv.cc}/bin/c++"
-      export LDFLAGS="-L${lib.getLib openssl}/lib -L${boost.out}/lib -L${libevent.out}/lib -L${db4}/lib"
-    ''}
-
-    # Run autogen
-    chmod +x autogen.sh
-    ./autogen.sh
-  '';
 
   configureFlags = [
     "--with-boost=${boost.dev}"
@@ -123,7 +89,6 @@ stdenv.mkDerivation rec {
     "--without-libs"
     "--with-incompatible-bdb"
     "--disable-dependency-tracking"
-    "--disable-werror"
   ] ++ lib.optionals withGui [
     "--with-gui=qt5"
     "--with-qt-bindir=${qtbase.dev}/bin:${qttools.dev}/bin"
@@ -131,16 +96,33 @@ stdenv.mkDerivation rec {
     "--enable-hardening"
   ];
 
-  # Fix header includes
-  preBuild = lib.optionalString stdenv.isDarwin ''
-    sed -i.bak '/#include <assert.h>/a\
-    #include <deque>\
-    #include <memory>\
-    #include <utility>' src/httpserver.cpp
+  preAutoreconf = ''
+    # Ensure build-aux exists
+    mkdir -p build-aux
+    
+    # Add missing includes
+    cp src/httpserver.cpp src/httpserver.cpp.bak
+    cat > src/httpserver.cpp << 'EOL'
+    #include <deque>
+    #include <memory>
+    #include <utility>
+    #include <vector>
+    EOL
+    cat src/httpserver.cpp.bak >> src/httpserver.cpp
+    rm src/httpserver.cpp.bak
+  '';
+
+  preConfigure = ''
+    # Add BerkeleyDB paths
+    export BDB_PREFIX="${db4}"
+    
+    ${lib.optionalString stdenv.isDarwin ''
+      export MACOSX_DEPLOYMENT_TARGET=11.0
+      export LDFLAGS="-L${lib.getLib openssl}/lib -L${boost.out}/lib -L${libevent.out}/lib -L${db4}/lib"
+    ''}
   '';
 
   enableParallelBuilding = true;
-  makeFlags = [ "V=1" ];
 
   meta = with lib; {
     description = "DigiByte (DGB) is a rapidly growing decentralized, global blockchain";
