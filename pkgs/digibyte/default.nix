@@ -21,6 +21,7 @@
 , clang
 , llvmPackages
 , withGui ? false
+, withDashboard ? true
 , qtbase ? null
 , qttools ? null
 , wrapQtAppsHook ? null

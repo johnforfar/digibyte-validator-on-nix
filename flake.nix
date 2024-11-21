@@ -1,5 +1,3 @@
-# flake.nix:
-
 {
   description = "Multi-architecture DigiByte validator";
 
@@ -26,6 +24,8 @@
       in
       {
         packages = rec {
+          dashboard = pkgs.callPackage ./pkgs/digibyte/dashboard { };
+          
           digibyte = pkgs.callPackage ./pkgs/digibyte {
             inherit (pkgs) clang llvmPackages;
             inherit (pkgs.qt6)
@@ -42,6 +42,22 @@
           };
           
           default = digibyted;
+        };
+
+        apps = rec {
+          # Fix: Create app for digibyted
+          digibyted = flake-utils.lib.mkApp {
+            drv = self.packages.${system}.digibyted;
+            name = "digibyted";
+          };
+          
+          # Fix: Reference digibyted app as default
+          default = digibyted;
+          
+          dashboard = flake-utils.lib.mkApp {
+            drv = self.packages.${system}.dashboard;
+            name = "digibyte-dashboard";
+          };
         };
       }
     );
