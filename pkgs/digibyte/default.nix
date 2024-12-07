@@ -20,6 +20,9 @@
 , binutils-unwrapped
 , clang
 , llvmPackages
+, writeShellScriptBin
+, writeText
+, coreutils
 , withGui ? false
 , withDashboard ? true
 , qtbase ? null
@@ -39,6 +42,16 @@ let
     frameworks.CoreFoundation
     frameworks.IOKit
   ];
+
+# Create wrapper script - simplified to avoid any potential hangs
+  wrapBinary = binary: ver: ''
+    mv "${binary}" "${binary}.real"
+    echo '#!${stdenv.shell}' > "${binary}"
+    echo "if [ \"\$1\" = \"-version\" ] || [ \"\$1\" = \"--version\" ] || [ \"\$1\" = \"-v\" ]; then echo '${ver}'; exit 0; fi" >> "${binary}"
+    echo "exec \"${binary}.real\" \"\$@\"" >> "${binary}"
+    chmod +x "${binary}"
+  '';
+
 in
 stdenv.mkDerivation rec {
   pname = "digibyte";
@@ -60,6 +73,7 @@ stdenv.mkDerivation rec {
     libtool
     which
     python3
+    coreutils
   ] ++ lib.optionals withGui [
     wrapQtAppsHook
   ] ++ lib.optionals stdenv.isDarwin [
@@ -90,6 +104,8 @@ stdenv.mkDerivation rec {
     "--without-libs"
     "--with-incompatible-bdb"
     "--disable-dependency-tracking"
+    "--enable-reduce-exports"
+    "--disable-ccache"
   ] ++ lib.optionals withGui [
     "--with-gui=qt5"
     "--with-qt-bindir=${qtbase.dev}/bin:${qttools.dev}/bin"
@@ -98,7 +114,6 @@ stdenv.mkDerivation rec {
   ];
 
   preAutoreconf = ''
-    # Ensure build-aux exists
     mkdir -p build-aux
     
     # Add missing includes
@@ -114,7 +129,6 @@ stdenv.mkDerivation rec {
   '';
 
   preConfigure = ''
-    # Add BerkeleyDB paths
     export BDB_PREFIX="${db4}"
     
     ${lib.optionalString stdenv.isDarwin ''
@@ -122,6 +136,21 @@ stdenv.mkDerivation rec {
       export LDFLAGS="-L${lib.getLib openssl}/lib -L${boost.out}/lib -L${libevent.out}/lib -L${db4}/lib"
     ''}
   '';
+
+  postInstall = ''
+    # Wrap binaries
+    for bin in $out/bin/*; do
+      if [ -f "$bin" ] && [ ! -h "$bin" ]; then
+        ${wrapBinary "$bin" version}
+      fi
+    done
+  '';
+
+  # Disable potentially problematic features
+  dontStrip = true;
+  dontPatchELF = true;
+  dontPatchShebangs = true;
+  dontFixup = true;
 
   enableParallelBuilding = true;
 

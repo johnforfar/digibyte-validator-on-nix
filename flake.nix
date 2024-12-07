@@ -1,3 +1,5 @@
+# ./flake.nix
+
 {
   description = "Multi-architecture DigiByte validator";
 
@@ -21,42 +23,54 @@
             allowUnsupportedSystem = true;
           };
         };
-      in
-      {
-        packages = rec {
-          dashboard = pkgs.callPackage ./pkgs/digibyte/dashboard { };
+
+        # Main packages
+        digibyted = pkgs.callPackage ./pkgs/digibyte {
+          inherit (pkgs) clang llvmPackages;
+          withGui = false;
+        };
+
+        dashboard = pkgs.callPackage ./pkgs/digibyte/dashboard {
+          inherit digibyted;
+        };
+
+        # Container configuration
+        containerSystem = pkgs.nixos ({
+          imports = [ ./container.nix ];
           
-          digibyte = pkgs.callPackage ./pkgs/digibyte {
-            inherit (pkgs) clang llvmPackages;
-            inherit (pkgs.qt6)
-              qtbase
-              qttools;
-            inherit (pkgs)
-              wrapQtAppsHook;
-            withGui = !pkgs.stdenv.isDarwin;
+          system.stateVersion = "24.05";
+          
+          # Container-specific config
+          virtualisation.docker.enable = true;
+          users.users.digibyte = {
+            isSystemUser = true;
+            group = "digibyte";
+            home = "/var/lib/digibyte";
+            createHome = true;
           };
-          
-          digibyted = pkgs.callPackage ./pkgs/digibyte {
-            inherit (pkgs) clang llvmPackages;
-            withGui = false;
-          };
-          
+          users.groups.digibyte = {};
+        });
+
+      in {
+        # Packages
+        packages = {
+          inherit digibyted dashboard;
+          container = containerSystem;
           default = digibyted;
         };
 
-        apps = rec {
-          default = digibyted;
-          
-          digibyted = flake-utils.lib.mkApp {
-            drv = self.packages.${system}.digibyted;
-            name = "digibyted";
-          };
-
-          dashboard = flake-utils.lib.mkApp {
-            drv = self.packages.${system}.dashboard;
-            name = "digibyte-dashboard";
-          };
+        # Apps
+        apps.container = flake-utils.lib.mkApp {
+          drv = pkgs.writeShellScriptBin "run-digibyte" ''
+            #!/bin/sh
+            exec ${pkgs.nixos-container}/bin/nixos-container run digibyte "$@"
+          '';
+          name = "run-digibyte";
         };
-      }
-    );
+        
+        apps.default = self.apps.${system}.container;
+
+        # NixOS module
+        nixosModules.default = import ./container.nix;
+      });
 }

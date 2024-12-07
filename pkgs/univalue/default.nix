@@ -1,4 +1,4 @@
-# pkgs/digibyte/default.nix:
+# pkgs/univalue/default.nix:
 
 { lib
 , stdenv
